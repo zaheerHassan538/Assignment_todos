@@ -1,18 +1,45 @@
 package main
 
 import (
+	"mytodoapp/controller"
 	"mytodoapp/database"
-	"mytodoapp/routes"
+	"mytodoapp/helper"
+	"mytodoapp/models"
+	"mytodoapp/repository"
+	"mytodoapp/router"
+	"mytodoapp/service"
+	"net/http"
 
-	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
+	"github.com/rs/zerolog/log"
 )
 
 func main() {
-	router := gin.New()
-	// router.GET("/", func(c *gin.Context) {
-	// 	c.String(200, "Hello World!")
-	// })
-	database.Connect()
-	routes.UserRoute(router)
-	router.Run(":8080")
+	log.Info().Msg("Started Server!")
+
+	//Database
+	db := database.DatabaseConnection()
+	validate := validator.New()
+
+	db.Table("users").AutoMigrate(&models.Users{})
+
+	//Repository
+	usersRepository := repository.NewUsersREpositoryImpl(db)
+
+	//service
+	usersService := service.NewUsersServiceImpl(usersRepository, validate)
+
+	//Controller
+	usersController := controller.NewUsersController(usersService)
+
+	//Router
+	routes := router.NewRouter(usersController)
+
+	server := &http.Server{
+		Addr:    ":8080",
+		Handler: routes,
+	}
+
+	err := server.ListenAndServe()
+	helper.ErrorPanic(err)
 }
